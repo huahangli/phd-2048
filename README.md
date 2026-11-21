@@ -1,7 +1,8 @@
 # PhD 2048
-A fork of [2048](https://github.com/gabrielecirulli/2048) for PhD students. (Yes, you can create a professor's 2048 in which two students become a garbage tile.)
 
-Made just for procrastination. [Play it here!](https://ymfa.github.io/phd-2048/)
+This repository is a fork of [PhD 2048 by ymfa](https://github.com/ymfa/phd-2048),
+which adapts [Gabriele Cirulli's original 2048](https://github.com/gabrielecirulli/2048)
+for PhD students. [Play ymfa's version](https://ymfa.github.io/phd-2048/).
 
 **[Play this version on GitHub Pages](https://huahangli.github.io/phd-2048/)**.
 The hosted game supports keyboard and touch input and the browser-based
