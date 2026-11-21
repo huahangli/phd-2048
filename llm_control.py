@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 
 def decision_request(state, candidates):
     return {
-        "model": os.environ.get("LLM_MODEL", "gpt-6-luna"),
+        "model": os.environ.get("LLM_MODEL"),
         "messages": [
             {
                 "role": "system",
@@ -60,7 +60,7 @@ def parse_answer(response, candidates):
 
 
 def decide(payload, candidates):
-    base_url = os.environ.get("LLM_BASE_URL", "http://127.0.0.1:8317/v1").rstrip("/")
+    base_url = os.environ.get("LLM_BASE_URL").rstrip("/")
     endpoint = urlsplit(base_url)
     if (endpoint.scheme not in ("http", "https") or not endpoint.hostname
             or endpoint.username is not None or endpoint.query or endpoint.fragment):
