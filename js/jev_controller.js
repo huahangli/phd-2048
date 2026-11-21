@@ -4,7 +4,7 @@ async function jevRequest(path, body) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
   };
-  const response = await fetch("/api/jev/runs" + path, options);
+  const response = await fetch("/api/runs" + path, options);
   if (!response.headers.get("content-type")?.includes("application/json")) {
     throw new Error("请使用 python3 serve.py 启动游戏");
   }
@@ -15,6 +15,7 @@ async function jevRequest(path, body) {
 
 const jevDirections = ["up", "right", "down", "left"];
 const jevArrows = { up: "↑", right: "→", down: "↓", left: "←" };
+const modelStrategies = new Set(["jev", "llm"]);
 
 function setupJevController(game) {
   // The trajectory server listens only on loopback. Hosted pages run in the browser.
@@ -40,8 +41,11 @@ function setupJevController(game) {
   let totalLookups = 0;
 
   if (!hasTrajectoryServer) {
-    strategyInput.querySelector('option[value="jev"]').remove();
+    document.querySelector("#model-strategies").remove();
     history.hidden = true;
+  } else {
+    const requested = new URLSearchParams(location.search).get("strategy");
+    if (modelStrategies.has(requested)) strategyInput.value = requested;
   }
 
   function resetMetrics() {
@@ -82,7 +86,9 @@ function setupJevController(game) {
   }
 
   function updateToggle() {
-    toggle.textContent = run ? "暂停" : startLabel;
+    const strategy = strategyInput.value;
+    toggle.textContent = run ? "暂停" :
+      modelStrategies.has(strategy) ? "启动 " + strategyLabels[strategy] : startLabel;
     toggle.disabled = !run && Boolean(pending);
     strategyInput.disabled = Boolean(run || pending);
   }
@@ -155,7 +161,7 @@ function setupJevController(game) {
         : label + " 正在选择 " + candidates.map(candidate => jevArrows[candidate]).join(" ");
       status.textContent = currentRun.lastMove ? currentRun.lastMove + " · " + selecting : selecting;
       let local;
-      if (currentRun.strategy !== "jev" && directions.length > 1) {
+      if (!modelStrategies.has(currentRun.strategy) && directions.length > 1) {
         const stepMs = delay;
         const choice = currentRun.strategy === "expectimax_10"
           ? await chooseInWorker(currentRun.id, before, directions)
@@ -223,7 +229,7 @@ function setupJevController(game) {
   function begin(id, revision) {
     if (!interval.reportValidity() || pending) return;
     const strategy = strategyInput.value;
-    if (!id && (game.over || (strategy === "jev" && game.isGameTerminated()))) {
+    if (!id && (game.over || (modelStrategies.has(strategy) && game.isGameTerminated()))) {
       status.textContent = hasTrajectoryServer ? "请先重开游戏，或选择可续跑的轨迹" : "请先重开游戏";
       return;
     }
@@ -241,11 +247,11 @@ function setupJevController(game) {
       } else {
         const grid = game.grid;
         const state = game.serialize();
-        if (strategy !== "jev") state.keepPlaying = true;
+        if (!modelStrategies.has(strategy)) state.keepPlaying = true;
         const created = hasTrajectoryServer ? await jevRequest("", { state, strategy })
           : { id: version };
         if (version !== inputVersion || grid !== game.grid) return;
-        if (strategy !== "jev") {
+        if (!modelStrategies.has(strategy)) {
           game.keepPlaying = true;
           if (game.won) game.actuator.continueGame();
           game.actuate();
@@ -267,7 +273,10 @@ function setupJevController(game) {
     delay = Math.round(interval.valueAsNumber * 1000);
     if (timer !== undefined) schedule();
   });
-  strategyInput.addEventListener("change", resetMetrics);
+  strategyInput.addEventListener("change", () => {
+    resetMetrics();
+    updateToggle();
+  });
   resetMetrics();
   updateToggle();
 

@@ -6,7 +6,7 @@ for PhD students. [Play ymfa's version](https://ymfa.github.io/phd-2048/).
 
 **[Play this version on GitHub Pages](https://huahangli.github.io/phd-2048/)**.
 The hosted game supports keyboard and touch input and the browser-based
-automatic strategies. Use the local server below for Jev or JSONL replay.
+automatic strategies. Use the local server below for model control and JSONL replay.
 
 ### Demo
 
@@ -45,8 +45,39 @@ python3 serve.py
 Open <http://127.0.0.1:2048/>, pick a strategy, and click **新开轨迹**.
 Immediate-score greedy, one-step board evaluation, and the Expectimax
 modes run in the browser and continue past 2048. They use the local
-server to save moves. Jev mode reads a TypeSafe key from the environment
-(`TYPESAFE_API_KEY`) or from a single line in `API_KEYS`.
+server to save moves.
+
+### Model control
+
+- Open [Jev](http://127.0.0.1:2048/?strategy=jev) and click **启动 Jev** to
+  start a TypeSafe run. Set
+  `TYPESAFE_API_KEY` on the server or place the key on one line in the
+  ignored local `API_KEYS` file.
+- Open [LLM as Control](http://127.0.0.1:2048/?strategy=llm) and click
+  **启动 LLM** to use an
+  OpenAI-compatible Chat Completions endpoint. The defaults are
+  `LLM_BASE_URL=http://127.0.0.1:8317/v1` and `LLM_MODEL=gpt-6-luna`.
+  If the endpoint requires authentication, set `LLM_API_KEY` in the
+  server environment before starting `serve.py`.
+
+The loopback controller API uses these routes. The game exposes its
+starting state with `window.game.serialize()` and legal directions with
+`window.game.availableDirections()` in `up, right, down, left` order
+(indices 0 to 3).
+
+| Request | JSON fields or result |
+|---|---|
+| `POST /api/runs` | `state`, `strategy` (`jev` or `llm`). Returns `id` and `revision`. |
+| `POST /api/runs/<id>/decision` | `revision`, current `state`, legal `candidates`. Returns `direction` and the next `revision`. |
+| `POST /api/runs/<id>/result` | The decision's `revision`, resulting `state`, and `status` (`applied`, `no-op`, `stale`, or `paused`). Save this before requesting the next move. |
+| `GET /api/runs/<id>` | Returns the run's stored events. |
+
+The server validates the model answer against the supplied candidates,
+and the browser rechecks the board before playing. A single legal
+direction is applied locally. The JSONL records the model request and
+result, with authentication handled separately by the server.
+
+### Timing and replay
 
 Edit **走棋间隔（秒）** to set the delay after each turn. It defaults to
 0.8 seconds. Set it to 0 to start the next search as soon as the previous

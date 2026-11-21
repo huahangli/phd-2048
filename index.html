@@ -44,7 +44,10 @@
         <option value="expectimax" selected>Expectimax</option>
         <option value="expectimax_deep">Expectimax 深搜</option>
         <option value="expectimax_10">Expectimax 最多 10 步</option>
-        <option value="jev">Jev</option>
+        <optgroup id="model-strategies" label="模型控制（本地服务）">
+          <option value="jev">Jev</option>
+          <option value="llm">LLM as Control</option>
+        </optgroup>
       </select>
       <button type="button" id="jev-toggle">新开轨迹</button>
       <button type="button" id="jev-history">轨迹回放</button>

@@ -1,4 +1,4 @@
-"""Serve the game and proxy Jev decisions on localhost."""
+"""Serve the game and proxy model decisions on localhost."""
 
 import argparse
 import json
@@ -13,6 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
+import llm_control
 from jev_runs import Runs, valid_state
 
 ROOT = Path(__file__).resolve().parent
@@ -30,12 +31,13 @@ LOCAL_STRATEGIES = {
     "expectimax_deep": (2, 3),
     "expectimax_10": range(1, 11),
 }
+MODEL_STRATEGIES = {"jev": "TypeSafe API", "llm": "LLM API"}
 STATIC_FILES = {"/", "/index.html", "/manifest.json", "/favicon.ico"}
 STATIC_DIRS = {"js", "style", "meta"}
 RUNS = Runs(ROOT / "jev-runs")
 RUN_LOCK = Lock()
 MODEL_LOCK = Lock()
-RUN_ROUTE = re.compile(r"/api/jev/runs/([0-9a-f]{32})(?:/(decision|result|resume))?")
+RUN_ROUTE = re.compile(r"/api/(?:jev/)?runs(?:/([0-9a-f]{32})(?:/(decision|result|resume))?)?")
 
 
 def get_api_key():
@@ -193,14 +195,14 @@ class Handler(SimpleHTTPRequestHandler):
     def do_GET(self):
         path = urlsplit(self.path).path
         match = RUN_ROUTE.fullmatch(path)
-        if path != "/api/jev/runs" and not match:
+        if not match:
             super().do_GET()
             return
 
         try:
             self.require_local()
             with RUN_LOCK:
-                if match:
+                if match[1]:
                     if match[2]:
                         raise FileNotFoundError
                     self.send_json(200, events=RUNS.read(match[1]))
@@ -217,11 +219,11 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             self.require_local()
             match = RUN_ROUTE.fullmatch(self.path)
-            if self.path == "/api/jev/runs":
+            if match and not match[1]:
                 body = self.read_body()
                 state = body.get("state")
                 strategy = body.get("strategy", "jev")
-                if not valid_state(state) or strategy not in (*LOCAL_STRATEGIES, "jev"):
+                if not valid_state(state) or strategy not in (*LOCAL_STRATEGIES, *MODEL_STRATEGIES):
                     raise ValueError
                 with RUN_LOCK:
                     run_id = RUNS.start(state, strategy)
@@ -271,26 +273,34 @@ class Handler(SimpleHTTPRequestHandler):
                 source = "forced" if len(candidates) == 1 else strategy
                 result = (local_decision(data.get("local"), source, candidates)
                           if source in LOCAL_STRATEGIES else None)
-                request = decision_request(model_state(state), candidates) if source == "jev" else None
+                request = None
+                if source == "jev":
+                    request = decision_request(model_state(state), candidates)
+                elif source == "llm":
+                    request = llm_control.decision_request(model_state(state), candidates)
                 decision = RUNS.append(run_id, events, "decision", state=state,
                                        candidates=candidates, source=source, request=request)
             started = monotonic()
             error = None
             if source == "forced":
                 result = {"direction": candidates[0]}
-            elif source == "jev":
-                api_key = get_api_key()
-                if not api_key:
-                    error = "请在 API_KEYS 文件中放入 TypeSafe 密钥，或设置 TYPESAFE_API_KEY"
-                else:
-                    try:
+            elif source in MODEL_STRATEGIES:
+                service = MODEL_STRATEGIES[source]
+                try:
+                    if source == "llm":
+                        result = llm_control.decide(request, candidates)
+                    elif api_key := get_api_key():
                         result = decide(api_key, request, candidates)
-                    except HTTPError as exc:
-                        error = f"TypeSafe API 返回 HTTP {exc.code}"
-                    except (URLError, TimeoutError, OSError):
-                        error = "连接 TypeSafe API 失败或超时"
-                    except (ValueError, KeyError, TypeError):
-                        error = "TypeSafe API 返回了无效的决策"
+                    else:
+                        error = "请在 API_KEYS 文件中放入 TypeSafe 密钥，或设置 TYPESAFE_API_KEY"
+                except HTTPError as exc:
+                    error = f"{service} 返回 HTTP {exc.code}"
+                    if source == "llm" and exc.code in (401, 403):
+                        error += "，请检查服务端 LLM_API_KEY"
+                except (URLError, TimeoutError, OSError):
+                    error = f"连接 {service} 失败或超时"
+                except (ValueError, KeyError, IndexError, TypeError):
+                    error = f"{service} 返回了无效的决策或配置"
             with RUN_LOCK:
                 event = RUNS.append(run_id, events, "answer", decision=decision["revision"],
                                     result=result, error=error,

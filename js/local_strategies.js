@@ -1,5 +1,6 @@
 const strategyLabels = {
   jev: "Jev",
+  llm: "LLM",
   greedy: "即时得分贪心",
   heuristic: "一步棋盘评估",
   expectimax: "Expectimax",
