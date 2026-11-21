@@ -55,8 +55,7 @@ server to save moves.
   ignored local `API_KEYS` file.
 - Open [LLM as Control](http://127.0.0.1:2048/?strategy=llm) and click
   **启动 LLM** to use an
-  OpenAI-compatible Chat Completions endpoint. The defaults are
-  `LLM_BASE_URL=http://127.0.0.1:8317/v1` and `LLM_MODEL=gpt-6-luna`.
+  OpenAI-compatible Chat Completions endpoint. 
   If the endpoint requires authentication, set `LLM_API_KEY` in the
   server environment before starting `serve.py`.
 
@@ -77,37 +76,3 @@ and the browser rechecks the board before playing. A single legal
 direction is applied locally. The JSONL records the model request and
 result, with authentication handled separately by the server.
 
-### Timing and replay
-
-Edit **走棋间隔（秒）** to set the delay after each turn. It defaults to
-0.8 seconds. Set it to 0 to start the next search as soon as the previous
-turn is saved. Click **暂停** or make a manual move to take over.
-
-**轨迹回放** lists the runs saved in `jev-runs/<run-id>.jsonl`. Pick a run
-and use the step field, slider, or playback controls to inspect its exact
-saved positions. **从末尾续跑** restores the latest saved step and appends
-to the original file. Each file begins with the initial board and records
-the decision, execution outcome, and each resulting board. Local
-strategies also save their candidate values when comparing multiple moves.
-
-Run the rule checks and compare local strategies on the same seeded
-games with `node tests/local_strategies.cjs 10`. Compare just the two
-Expectimax modes with `node tests/local_strategies.cjs 5 expectimax expectimax_deep`.
-
-The deeper mode tries a third move when eight or fewer cells are empty,
-using weighted samples for later spawn locations. If it reaches its
-search budget, it falls back to the two-move result.
-
-**Expectimax 最多 10 步** runs in a browser worker with a 50 ms search target,
-iteratively deepens from one move, and returns its last completed depth.
-It considers every spawn location at the root and uses weighted sampling
-and at most two ranked directions deeper in the tree. It retains up to
-50,000 cached search entries per run. The controls show completed depth,
-the latest search time, rolling P95, and cumulative cache hit rate.
-The search assumes a 50 ms simulated turn when the real inter-turn delay is
-set to 0. The simulated turn length and the configured delay are both
-saved in the trace.
-
-For the 50 ms seeded experiment, run
-`node tests/local_strategies.cjs 3 expectimax_deep expectimax_10`.
-The benchmark uses a virtual 800 ms game clock without sleeping.
