@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PhD 2048: Move the bricks</title>
+  <link href="style/main.css" rel="stylesheet" type="text/css">
+  <link rel="shortcut icon" href="favicon.ico">
+  <link rel="apple-touch-icon" href="meta/apple-touch-icon.png">
+  <link rel="apple-touch-startup-image" href="meta/apple-touch-startup-image-640x1096.png" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)"> <!-- iPhone 5+ -->
+  <link rel="apple-touch-startup-image" href="meta/apple-touch-startup-image-640x920.png"  media="(device-width: 320px) and (device-height: 480px) and (-webkit-device-pixel-ratio: 2)"> <!-- iPhone, retina -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" type="text/css" href="style/addtohomescreen.css">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="PhD 2048">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="HandheldFriendly" content="True">
+  <meta name="MobileOptimized" content="320">
+  <meta name="viewport" content="width=device-width, target-densitydpi=160dpi, initial-scale=1.0, maximum-scale=1, user-scalable=no, minimal-ui">
+</head>
+<body>
+  <div style='margin:0 auto;width:0px;height:0px;overflow:hidden;'>
+    <img src="meta/apple-touch-startup-image-640x920.png" width='640'>
+  </div>
+  <div class="container">
+    <div class="heading">
+      <h1 class="title"><div style='position:relative;height:0;width: 0;'><div id='progress'></div></div><span id='title'>PhD</span></h1>
+      <div class="scores-container">
+        <div class="score-container">0</div>
+        <div class="best-container">0</div>
+      </div>
+    </div>
+
+    <div class="above-game">
+      <p class="game-intro">Move the bricks to complete your PhD.</p>
+      <a class="restart-button">Drop out</a>
+    </div>
+
+    <div class="jev-controls">
+      <label for="auto-strategy">策略</label>
+      <select id="auto-strategy">
+        <option value="greedy">即时得分贪心</option>
+        <option value="heuristic">一步棋盘评估</option>
+        <option value="expectimax" selected>Expectimax</option>
+        <option value="expectimax_deep">Expectimax 深搜</option>
+        <option value="expectimax_10">Expectimax 最多 10 步</option>
+        <option value="jev">Jev</option>
+      </select>
+      <button type="button" id="jev-toggle">新开轨迹</button>
+      <button type="button" id="jev-history">轨迹回放</button>
+      <label for="jev-interval">走棋间隔（秒）</label>
+      <input id="jev-interval" type="number" min="0" max="60" step="any" value="0.8" required>
+      <p id="jev-status" role="status">手动模式</p>
+      <p id="search-metrics" class="search-metrics" title="P95 为最近至多 256 次实际搜索的耗时第 95 百分位" hidden></p>
+      <details id="search-comparison" class="search-comparison" hidden>
+        <summary>查看 3 局同种子对照</summary>
+        <table>
+          <thead><tr><th scope="col">种子</th><th scope="col">三步版</th><th scope="col">最多 10 步</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">1</th><td>37,760</td><td>27,616</td></tr>
+            <tr><th scope="row">2</th><td>13,708</td><td>66,224</td></tr>
+            <tr><th scope="row">3</th><td>37,708</td><td>60,568</td></tr>
+          </tbody>
+          <tfoot><tr><th scope="row">平均分</th><td>29,725</td><td>51,469</td></tr></tfoot>
+        </table>
+        <p>虚拟回合间隔 0.8 秒。新模式的缓存命中率为 27.2%，95.9% 的决策完成了 3 或 4 步。</p>
+      </details>
+    </div>
+
+    <dialog id="jev-replay" class="jev-replay" aria-labelledby="jev-replay-title">
+      <header>
+        <h2 id="jev-replay-title">轨迹回放</h2>
+        <form method="dialog"><button type="submit">关闭</button></form>
+      </header>
+      <label for="jev-run-list">选择运行</label>
+      <select id="jev-run-list" disabled></select>
+      <p id="jev-replay-status" role="status"></p>
+      <div id="jev-replay-content" hidden>
+        <div id="jev-replay-board" class="jev-replay-board" aria-label="历史棋盘"></div>
+        <div class="jev-replay-timeline">
+          <button type="button" id="jev-replay-prev" aria-label="上一步">←</button>
+          <label for="jev-replay-step">步骤</label>
+          <input id="jev-replay-step" type="number" min="0" step="1" value="0">
+          <output id="jev-replay-total" for="jev-replay-step"></output>
+          <button type="button" id="jev-replay-next" aria-label="下一步">→</button>
+          <button type="button" id="jev-replay-play">播放</button>
+        </div>
+        <input id="jev-replay-slider" type="range" min="0" value="0" aria-label="跳转到指定步骤">
+        <p id="jev-replay-meta"></p>
+        <div class="jev-replay-actions">
+          <button type="button" id="jev-resume">从末尾续跑</button>
+          <small id="jev-replay-file"></small>
+        </div>
+        <details>
+          <summary>查看当前步骤的 JSON 记录</summary>
+          <pre id="jev-replay-json"></pre>
+        </details>
+      </div>
+    </dialog>
+
+    <div class="game-container">
+      <div class="game-message">
+        <p></p>
+        <div class="lower">
+          <a class="keep-playing-button">Keep going</a>
+          <a class="retry-button">Try again</a>
+        </div>
+      </div>
+
+      <div class="grid-container">
+        <div class="grid-row">
+          <div class="grid-cell"></div>
+          <div class="grid-cell"></div>
+          <div class="grid-cell"></div>
+          <div class="grid-cell"></div>
+        </div>
+        <div class="grid-row">
+          <div class="grid-cell"></div>
+          <div class="grid-cell"></div>
+          <div class="grid-cell"></div>
+          <div class="grid-cell"></div>
+        </div>
+        <div class="grid-row">
+          <div class="grid-cell"></div>
+          <div class="grid-cell"></div>
+          <div class="grid-cell"></div>
+          <div class="grid-cell"></div>
+        </div>
+        <div class="grid-row">
+          <div class="grid-cell"></div>
+          <div class="grid-cell"></div>
+          <div class="grid-cell"></div>
+          <div class="grid-cell"></div>
+        </div>
+      </div>
+
+      <div class="tile-container">
+
+      </div>
+    </div>
+
+    <p class="game-explanation">
+    <strong class='important'>How to play:</strong> Use your <strong>arrow keys</strong> to move the bricks. When two bricks of the same type touch, they <strong>merge into one!</strong><br>However, your ideas and experiments may not always work &mdash; they may produce the sticky <strong>garbage</strong>, which is resistant to moves. Two garbage bricks vanish when they touch. You will stop producing garbage after getting a <strong>paper</strong> (except for one more piece to help you eliminate any existing garbage).<br>A <strong>relationship</strong> upgrades any brick it touches for the first time. The brick shows the number of times you have benefited from it. When the 10-sec relationship ends, it will become a <strong>break-up</strong> (or garbage if you didn't use it), which downgrades bricks until you have repaid the benefits.
+    </p>
+    <hr>
+    <div style="line-height:1.65">
+    Fork <a href="https://github.com/ymfa/phd-2048" target="_blank">this game</a> on GitHub!
+    </div>
+
+  </div>
+  <script src="js/bind_polyfill.js"></script>
+  <script src="js/classlist_polyfill.js"></script>
+  <script src="js/animframe_polyfill.js"></script>
+  <script src="js/keyboard_input_manager.js"></script>
+  <script src="js/html_actuator.js"></script>
+  <script src="js/grid.js"></script>
+  <script src="js/tile.js"></script>
+  <script src="js/local_storage_manager.js"></script>
+  <script src="js/game_manager.js"></script>
+  <script src="js/local_strategies.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/jev_replay.js"></script>
+  <script src="js/jev_controller.js"></script>
+  <script src="js/application.js"></script>
+  <script src="js/addtohomescreen.min.js"></script>
+  <script>
+  addToHomescreen({
+    appID: 'io.github.ymfa.phd2048',
+    skipFirstVisit: true,
+    maxDisplayCount: 1
+  });
+  </script>
+</body>
+</html>
