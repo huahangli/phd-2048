@@ -5,7 +5,7 @@ function GameManager(size, InputManager, Actuator, StorageManager) {
   this.actuator       = new Actuator;
 
   this.startTiles     = 2;
-  this.relDuration    = 10; // Duration (sec) of a relationship
+  this.relDuration    = GameManager.relationshipDurationMs / 1000; // Duration (sec) of a relationship
 
   this.inputManager.on("move", this.move.bind(this));
   this.inputManager.on("restart", this.restart.bind(this));
@@ -14,8 +14,12 @@ function GameManager(size, InputManager, Actuator, StorageManager) {
   this.setup();
 }
 
+GameManager.relationshipDurationMs = 10000;
+
 // Restart the game
 GameManager.prototype.restart = function () {
+  clearInterval(this.timer);
+  delete this.timer;
   this.storageManager.clearGameState();
   this.actuator.continueGame(); // Clear the game won/lost message
   this.setup();
@@ -79,6 +83,27 @@ GameManager.prototype.setup = function () {
   this.actuate();
 };
 
+// Restore the last saved position of a Jev run, including its remaining timer.
+GameManager.prototype.restoreRunState = function (state, savedAt) {
+  clearInterval(this.timer);
+  delete this.timer;
+  ["score", "over", "won", "keepPlaying", "maxTile", "garbCount", "karma", "relTime"]
+    .forEach(function (field) { this[field] = state[field]; }, this);
+  this.grid = new Grid(state.grid.size, state.grid.cells);
+  if (savedAt && state.relTime) {
+    this.relTime = Date.now() - Math.max(0, Date.parse(savedAt) - state.relTime);
+    this.grid.eachCell(function (x, y, tile) {
+      if (tile && tile.benefitedFrom === state.relTime) tile.benefitedFrom = this.relTime;
+    }.bind(this));
+  }
+  this.actuator.continueGame();
+  this.actuator.refreshRel(this.relTime
+    ? Math.max(0, Math.round(this.relDuration - (Date.now() - this.relTime) / 1000))
+    : 0);
+  if (this.relTime) this.setTimer();
+  this.actuate();
+};
+
 // Set up the initial tiles to start the game with
 GameManager.prototype.addStartTiles = function () {
   for (var i = 0; i < this.startTiles; i++) {
@@ -86,21 +111,28 @@ GameManager.prototype.addStartTiles = function () {
   }
 };
 
+GameManager.prototype.relationshipChance = function (numCellsAvailable) {
+  if (this.karma !== 0 || this.relTime != null || numCellsAvailable < 2 || numCellsAvailable > 9) {
+    return 0;
+  }
+  if (this.maxTile >= 1024) return 0.001;
+  if (this.maxTile >= 256) return 0.002;
+  return 0.003;
+};
+
 // Adds a tile in a random position
-GameManager.prototype.addRandomTile = function () {
+GameManager.prototype.addRandomTile = function (random = Math.random, now = Date.now()) {
   var numCellsAvailable = this.grid.availableCells().length;
   if (numCellsAvailable > 0) {
-    var coin = Math.random();
-    var p = 0.003;
-    if(this.maxTile >= 1024) p = 0.001;
-    else if(this.maxTile >= 256) p = 0.002;
+    var coin = random();
+    var p = this.relationshipChance(numCellsAvailable);
     var value = coin < 0.9 ? 2 : 4;
-    if(this.karma == 0 && this.relTime == null && numCellsAvailable > 1 && numCellsAvailable < 10 && coin >= 0.9-9*p && coin < 0.9+p){
+    if (p && coin >= 0.9 - 9 * p && coin < 0.9 + p) {
       value = 1;
-      this.relTime = new Date().getTime();
+      this.relTime = now;
       this.setTimer();
     }
-    var tile = new Tile(this.grid.randomAvailableCell(), value);
+    var tile = new Tile(this.grid.randomAvailableCell(random), value);
 
     this.grid.insertTile(tile);
   }
@@ -162,11 +194,24 @@ GameManager.prototype.moveTile = function (tile, cell) {
 };
 
 // Move tiles on the grid in the specified direction
-GameManager.prototype.move = function (direction) {
+GameManager.prototype.move = function (direction, random = Math.random, now = Date.now()) {
   // 0: up, 1: right, 2: down, 3: left
-  var self = this;
+  if (this.isGameTerminated() || !this.getVector(direction)) return false;
+  if (!this.slide(direction, random)) return false;
 
-  if (this.isGameTerminated()) return; // Don't do anything if the game's over
+  this.addRandomTile(random, now);
+
+  if (!this.movesAvailable()) {
+    this.over = true;
+  }
+
+  this.actuate();
+  return true;
+};
+
+// Apply the slide and merges without spawning a tile or updating the UI.
+GameManager.prototype.slide = function (direction, random) {
+  var self = this;
 
   var cell, tile;
 
@@ -188,7 +233,7 @@ GameManager.prototype.move = function (direction) {
         var next      = self.grid.cellContent(positions.next);
 
         if (tile.value == 0) {  // Sticky garbage
-          var lazyPosition = self.averagePosition(positions.farthest, cell);
+          var lazyPosition = self.averagePosition(positions.farthest, cell, random);
           if (!self.positionsEqual(lazyPosition, positions.farthest)) {
             positions.farthest = lazyPosition;
             next = null;
@@ -219,8 +264,8 @@ GameManager.prototype.move = function (direction) {
         else if (next && next.value === tile.value && !next.mergedFrom) {
           if(next.value != 0) {
             if((self.maxTile < 256 || self.garbCount % 2 > 0)
-              && ((next.value == 8 && Math.random() >= 0.8)
-              || (next.value == 128 && Math.random() >= 0.85))) {
+              && ((next.value == 8 && random(0.8) >= 0.8)
+              || (next.value == 128 && random(0.85) >= 0.85))) {
               var merged = new Tile(positions.next, 0);
               self.garbCount++;
             }
@@ -256,15 +301,28 @@ GameManager.prototype.move = function (direction) {
     });
   });
 
-  if (moved) {
-    this.addRandomTile();
+  return moved;
+};
 
-    if (!this.movesAvailable()) {
-      this.over = true; // Game over!
-    }
+GameManager.fromState = function (state) {
+  var copy = Object.assign(Object.create(GameManager.prototype), state);
+  copy.size = state.grid.size;
+  copy.grid = new Grid(copy.size, state.grid.cells);
+  return copy;
+};
 
-    this.actuate();
-  }
+GameManager.prototype.availableDirections = function () {
+  if (this.isGameTerminated()) return [];
+
+  var state = this.serialize();
+  return [0, 1, 2, 3].filter(function (direction) {
+    var preview = GameManager.fromState(state);
+
+    // Round sticky garbage toward its destination to test whether it can move.
+    var vector = preview.getVector(direction);
+    var roundingRoll = vector.x + vector.y > 0 ? 0 : 0.999999;
+    return preview.slide(direction, function () { return roundingRoll; });
+  });
 };
 
 // Get the vector representing the chosen direction
@@ -348,11 +406,11 @@ GameManager.prototype.positionsEqual = function (first, second) {
   return first.x === second.x && first.y === second.y;
 };
 
-GameManager.prototype.averagePosition = function (first, second) {
+GameManager.prototype.averagePosition = function (first, second, random) {
   var x = (first.x + second.x) / 2;
   var y = (first.y + second.y) / 2;
-  if (x%1 != 0) x = Math.random()<x%1 ? Math.ceil(x) : Math.floor(x);
-  if (y%1 != 0) y = Math.random()<y%1 ? Math.ceil(y) : Math.floor(y);
+  if (x%1 != 0) x = random(x%1)<x%1 ? Math.ceil(x) : Math.floor(x);
+  if (y%1 != 0) y = random(y%1)<y%1 ? Math.ceil(y) : Math.floor(y);
   return { x: x, y: y };
 };
 

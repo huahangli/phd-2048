@@ -49,13 +49,13 @@ HTMLActuator.prototype.clearContainer = function (container) {
   }
 };
 
-var val2caption = function(val){
+var val2caption = function(val, state = window.game){
   if(val <= 0) return caption_garbage;
   if(val == 1){
     var caption = "<span style='display:inline-block;line-height:1.2;vertical-align:middle'><span class='rel'>";
-    if(window.game.relTime) caption += captions_rel[0];
+    if(state.relTime) caption += captions_rel[0];
     else caption += captions_rel[1];
-    caption += "</span><br><span class='karma'>" + window.game.karma + "</span></span>";
+    caption += "</span><br><span class='karma'>" + state.karma + "</span></span>";
     return caption;
   }
   var idx = -1;
@@ -186,7 +186,7 @@ HTMLActuator.prototype.refreshRel = function (remainingTime) {
     this.progressBar.textContent = "";
     this.progressBar.style.display = "none";
     this.progressBar.style.width = "0";
-    var rels = document.querySelectorAll('.rel');
+    var rels = this.tileContainer.querySelectorAll('.rel');
     for(var i=0; i<rels.length; i++) rels[i].innerHTML = captions_rel[1];
   }
 };

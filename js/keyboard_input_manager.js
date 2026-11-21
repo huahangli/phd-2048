@@ -51,6 +51,9 @@ KeyboardInputManager.prototype.listen = function () {
 
   // Respond to direction keys
   document.addEventListener("keydown", function (event) {
+    if (document.querySelector("#jev-replay[open]")) return;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
+
     var modifiers = event.altKey || event.ctrlKey || event.metaKey ||
                     event.shiftKey;
     var mapped    = map[event.which];

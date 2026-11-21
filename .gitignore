@@ -1,1 +1,11 @@
 .sass-cache/
+.DS_Store
+AGENTS.md
+.codex/
+.env
+.env.*
+API_KEYS
+API_KEYS.*
+__pycache__/
+/jev-runs/
+*.jsonl

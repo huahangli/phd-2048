@@ -554,6 +554,94 @@ hr {
   text-align: center;
   float: right; }
 
+.jev-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+.jev-controls button,
+.jev-controls select,
+.jev-controls input {
+  font: inherit;
+  border: 1px solid #bbada0;
+  border-radius: 3px;
+  box-sizing: border-box;
+  min-height: 34px;
+}
+
+.jev-controls button {
+  background: #695746;
+  border-color: #695746;
+  color: #fffaf4;
+  cursor: pointer;
+  padding: 0 10px;
+}
+
+.jev-controls select,
+.jev-controls input {
+  padding: 0 5px;
+  color: inherit;
+  background: #fffcf6;
+}
+
+.jev-controls input {
+  width: 64px;
+}
+
+.jev-controls #jev-status,
+.jev-controls .search-metrics {
+  flex-basis: 100%;
+  margin: 0;
+  min-height: 1.5em;
+  overflow-wrap: anywhere;
+}
+
+.search-comparison {
+  flex-basis: 100%;
+  color: #695746;
+  font-size: 13px;
+}
+
+.search-comparison summary {
+  cursor: pointer;
+}
+
+.search-comparison table {
+  width: 100%;
+  margin: 5px 0;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.search-comparison th,
+.search-comparison td {
+  padding: 3px 6px;
+  border-bottom: 1px solid #ded2c6;
+  text-align: right;
+}
+
+.search-comparison th:first-child {
+  text-align: left;
+}
+
+.search-comparison p {
+  margin: 0;
+}
+
+.jev-controls .search-metrics {
+  color: #695746;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.jev-controls + .game-container {
+  margin-top: 10px;
+}
+
 .game-explanation {
   margin-top: 50px; }
 
@@ -792,3 +880,122 @@ hr {
       margin-top: 90px !important; }
     .game-message .lower {
       margin-top: 30px !important; } }
+
+.jev-replay {
+  box-sizing: border-box;
+  width: min(500px, calc(100% - 24px));
+  max-height: calc(100% - 24px);
+  margin: auto;
+  padding: 18px;
+  border: 1px solid #bbada0;
+  border-radius: 6px;
+  background: #faf8ef;
+  color: #695746;
+  font-size: 14px;
+}
+
+.jev-replay::backdrop {
+  background: rgb(48 39 29 / 48%);
+}
+
+.jev-replay header,
+.jev-replay-timeline,
+.jev-replay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.jev-replay header {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.jev-replay h2,
+.jev-replay p {
+  margin: 0;
+}
+
+.jev-replay button,
+.jev-replay select,
+.jev-replay input[type="number"] {
+  min-height: 32px;
+  border: 1px solid #bbada0;
+  border-radius: 3px;
+  font: inherit;
+  color: inherit;
+  background: #fffdf6;
+}
+
+.jev-replay button {
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+.jev-replay button:disabled,
+.jev-controls button:disabled {
+  cursor: default;
+  opacity: .56;
+}
+
+#jev-run-list,
+#jev-replay-slider {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 4px 0;
+  accent-color: #695746;
+}
+
+.jev-replay-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  width: min(100%, 320px);
+  box-sizing: border-box;
+  margin: 8px auto 12px;
+  padding: 6px;
+  border-radius: 5px;
+  background: #bbada0;
+}
+
+.jev-replay-board .jev-replay-cell {
+  position: static;
+  width: auto;
+  height: auto;
+  aspect-ratio: 1;
+  min-width: 0;
+  display: grid;
+  border-radius: 3px;
+  background: #cec2b6;
+}
+
+.jev-replay-board .tile .tile-inner {
+  display: grid;
+  place-content: center;
+  width: 100%;
+  height: 100%;
+  line-height: 1;
+  padding: 2px;
+  box-sizing: border-box;
+  overflow: hidden;
+  font-size: clamp(11px, 3.4vw, 16px);
+  overflow-wrap: anywhere;
+}
+
+#jev-replay-step {
+  width: 3.4em;
+}
+
+.jev-replay-actions,
+.jev-replay details {
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.jev-replay pre {
+  overflow: auto;
+  max-height: 14rem;
+  padding: 8px;
+  background: #eee4da;
+}
