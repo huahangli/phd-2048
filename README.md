@@ -8,6 +8,13 @@ for PhD students. [Play ymfa's version](https://ymfa.github.io/phd-2048/).
 The hosted game supports keyboard and touch input and the browser-based
 automatic strategies. Use the local server below for Jev or JSONL replay.
 
+### Demo
+
+Expectimax reaches the PhD tile in this sped-up recording. The Activity
+Monitor panel shows system-wide CPU usage from a separate gameplay run.
+
+https://github.com/user-attachments/assets/0e30f6fc-e24a-4a86-bcb4-baf9a233ff2e
+
 ### Forking
 Feel free to fork and create your own version of 2048. A few suggestions on what to fiddle with:
 
